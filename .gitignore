@@ -23,3 +23,5 @@ credential*
 Thumbs.db
 .idea/
 .vscode/
+# 运行生成的审核记录（不入库）
+config/review_records.json
