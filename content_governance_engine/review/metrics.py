@@ -24,8 +24,11 @@ class MetricsEngine:
             json.dump(self.records, f, ensure_ascii=False, indent=2)
 
     # ===== 记录一次审核结果 =====
-    def record(self, result: dict, text: str = "", ground_truth: str | None = None):
-        """result: engine.judge 的输出；ground_truth: 人工真值(可选，用于算漏判/误判)"""
+    def record(self, result: dict, text: str = "", ground_truth: str | None = None, sampled: bool = False):
+        """result: engine.judge 的输出
+        ground_truth: 人工真值(可选，"违规"/"正常")
+        sampled: 是否被抽检。只有抽检的记录(带真值)才算漏判/误判率。
+        """
         rec = {
             "time": int(time.time()),
             "text": text[:50],
@@ -33,7 +36,8 @@ class MetricsEngine:
             "action": result.get("action"),
             "source": result.get("source"),
             "detail": result.get("detail", ""),
-            "ground_truth": ground_truth,   # None=未知；或"违规"/"正常"
+            "sampled": bool(sampled),
+            "ground_truth": ground_truth if sampled else None,   # 非抽检不存真值
         }
         self.records.append(rec)
         self.save()
@@ -59,8 +63,9 @@ class MetricsEngine:
             elif r["source"] == "model":
                 命中来源["模型层"] += 1
 
-        # 有真值时的漏判/误判率（需要人工抽检回流 ground_truth）
-        judged = [r for r in self.records if r["ground_truth"] is not None]
+        # 有真值时漏判/误判率（只在抽检子集上算）
+        sampled_records = [r for r in self.records if r["sampled"]]
+        judged = [r for r in sampled_records if r["ground_truth"] is not None]
         误判 = [r for r in judged if r["ground_truth"] == "正常" and r["action"] not in ("放行",)]
         漏判 = [r for r in judged if r["ground_truth"] == "违规" and r["action"] == "放行"]
         n = len(judged)
@@ -73,6 +78,7 @@ class MetricsEngine:
             "命中来源": dict(命中来源),
             "人工介入率": round(action_cnt.get("进人工", 0) / total, 3) if total else 0,
             "抽检数": n,
+            "抽检率": round(n / total, 3) if total else 0,
             "误判率": round(len(误判) / n, 3) if n else 0,
             "漏判率": round(len(漏判) / n, 3) if n else 0,
         }
