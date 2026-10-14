@@ -5,6 +5,11 @@
 __pycache__/
 *.pyc
 
+# 忽略虚拟环境（Python venv 体积大，不入库）
+.venv/
+venv/
+env/
+
 # 忽略密钥与配置
 .env
 .env.*
