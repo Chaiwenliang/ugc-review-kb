@@ -23,8 +23,17 @@ BASE = Path(__file__).parent
 @st.cache_resource
 def 加载引擎():
     wl = WordlistEngine(词表路径)
-    ml = MockModelLayer()          # 无 key 时用模拟层兜底
-    engine = ReviewEngine(wl, ml)
+    # 优先用真实 LLM 模型层；无 key/失败时回退模拟层
+    try:
+        from review.model_layer import LLMModelLayer
+        ml = LLMModelLayer()
+        # 冒烟测试：调一次确认 key 可用
+        ml.classify("测试")
+        engine = ReviewEngine(wl, ml)
+    except Exception:
+        from review.model_layer import MockModelLayer
+        ml = MockModelLayer()   # 无 key 时用模拟层兜底
+        engine = ReviewEngine(wl, ml)
     metrics = MetricsEngine(记录路径)
     return wl, engine, metrics
 
